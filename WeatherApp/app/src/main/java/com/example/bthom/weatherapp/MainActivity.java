@@ -12,6 +12,7 @@ import android.os.AsyncTask;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.view.menu.ActionMenuItem;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -33,18 +34,20 @@ import com.squareup.picasso.Picasso;
 import java.lang.reflect.Type;
 
 
-public class MainActivity extends AppCompatActivity implements LocationListener {
+public class MainActivity extends AppCompatActivity{
 
     TextView txtCity, txtLastUpdate, txtDesc, txtHumidity, txtTime,txtMinMaxTemp;
     TextView txtCelsius;
     ProgressBar progressBar;
     ImageView imageView;
     LocationManager locationManager;
+    LocationListener locationListener = new MyLocationListener();
     String provider;
     Button viewRadar;
     static double lat, lon;
     OpenWeatherMap openWeatherMap = new OpenWeatherMap();
     int MY_PERMISSION = 0;
+    Location location;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,19 +55,17 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         setContentView(R.layout.activity_main);
 
         //our data
-        txtCity =  findViewById(R.id.txtCity);
-        txtLastUpdate =  findViewById(R.id.txtLastUpdate);
-        txtDesc =  findViewById(R.id.txtDesc);
+        txtCity = findViewById(R.id.txtCity);
+        txtLastUpdate = findViewById(R.id.txtLastUpdate);
+        txtDesc = findViewById(R.id.txtDesc);
         txtHumidity = findViewById(R.id.txtHumidity);
         txtTime = findViewById(R.id.txtTime);
-        txtCelsius =  findViewById(R.id.txtCelsius);
-         txtMinMaxTemp =  findViewById(R.id.txtMinMaxTemp);
-        imageView =  findViewById(R.id.imageView);
-        progressBar =  findViewById(R.id.dataLoading);
+        txtCelsius = findViewById(R.id.txtCelsius);
+        txtMinMaxTemp = findViewById(R.id.txtMinMaxTemp);
+        imageView = findViewById(R.id.imageView);
+        progressBar = findViewById(R.id.dataLoading);
 
-        //create button
-        //might add  in future
-
+        //radar button
         viewRadar = findViewById(R.id.viewRadar);
         viewRadar.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -75,11 +76,7 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             }
         });
 
-                progressBar.setVisibility(View.VISIBLE);
-
-        //get coordinates
-        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        provider = locationManager.getBestProvider(new Criteria(), false);
+        progressBar.setVisibility(View.VISIBLE);
 
         //permission check
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -95,14 +92,32 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
 
             }, MY_PERMISSION);
         }
-        Location location = locationManager.getLastKnownLocation(provider);
-        if (location == null) {
-            Log.e("TAG","No Location");
 
+        //This is to fix the 1st time run crash that was happening
+        //it waits until the user has accepted or denied permission
+        while (true) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                Log.i("Info", "Fine location granted");
+            }
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                Log.i("Info", "Write external storage permission granted");
+                break;
+            }
         }
 
+        //get coordinates
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        provider = locationManager.getBestProvider(new Criteria(), false);
 
+        if(provider != null){
+        location = locationManager.getLastKnownLocation(provider);
+        }
+        if (location == null) {
+            Log.e("TAG","No Location");
+        }
     }
+
+
 
     @Override
     protected void onPause() {
@@ -119,8 +134,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                     Manifest.permission.WRITE_EXTERNAL_STORAGE
             }, MY_PERMISSION);
         }
+        locationManager.removeUpdates(locationListener);
 
-        locationManager.removeUpdates(this);
 
     }
 
@@ -136,46 +151,25 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
                     Manifest.permission.ACCESS_NETWORK_STATE,
                     Manifest.permission.SYSTEM_ALERT_WINDOW,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE
-
-
             }, MY_PERMISSION);
         }
-        locationManager.requestLocationUpdates(provider, 400, 1, this);
-    }
 
-    @Override
-    public void onLocationChanged(Location location) {
-    lat = location.getLatitude();
-    lon = location.getLongitude();
-
-    new GetWeather().execute(Common.apiRequest(String.valueOf(lat),String.valueOf(lon)));
-    }
-
-    @Override
-    public void onStatusChanged(String s, int i, Bundle bundle) {
-
-    }
-
-    @Override
-    public void onProviderEnabled(String s) {
-
-    }
-
-    @Override
-    public void onProviderDisabled(String s) {
-
+        if(provider != null) {
+           locationManager.requestLocationUpdates(provider, 400, 1, locationListener);
+        }
     }
 
     private class GetWeather extends AsyncTask<String,Void,String>{
 
-        @Override
         protected void onPreExecute() {
             super.onPreExecute();
             progressBar.setVisibility(View.VISIBLE);
+            Log.i("TAG","Starting...");
         }
         @Override
         protected String doInBackground(String... params) {
 
+            Log.i("TAG","Gather weather for location...");
             String stream;
             String urlString = params[0];
 
@@ -189,7 +183,8 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
         protected void onPostExecute(String s) {
             super.onPostExecute(s);
             if(s.contains("Error: Not found city")){
-                progressBar.setVisibility(View.INVISIBLE    );
+
+                progressBar.setVisibility(View.INVISIBLE);
                 return;
             }
             Gson gson = new Gson();
@@ -205,13 +200,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             txtHumidity.setText(String.format("Humidity: %d%%",openWeatherMap.getMain().getHumidity()));
             txtTime.setText(String.format("%s/%s",Common.unixTimeStampToDateTime(openWeatherMap.getSys().getSunrise()),Common.unixTimeStampToDateTime(openWeatherMap.getSys().getSunset())));
             System.out.println("txtCelsius =" + txtCelsius);
-            txtCelsius.setText(String.format("%.1f °F",openWeatherMap.getMain().getTemp()));
+            txtCelsius.setText(String.format("%.0f °F",openWeatherMap.getMain().getTemp()));
             txtMinMaxTemp.setText(String.format("%.0f/%.0f °F",openWeatherMap.getMain().getTemp_max(),openWeatherMap.getMain().getTemp_min()));
             Picasso.with(MainActivity.this)
                     .load(Common.getImage(openWeatherMap.getWeather().get(0).getIcon()))
                     .into(imageView);
 
             progressBar.setVisibility(View.INVISIBLE);
+            Log.i("TAG","Done");
         }
 
     }
@@ -231,6 +227,31 @@ public class MainActivity extends AppCompatActivity implements LocationListener 
             default:
                 Toast.makeText(this,"Error, try restarting the application",Toast.LENGTH_SHORT).show();
                 return true;
+        }
+    }
+
+    private class MyLocationListener implements LocationListener {
+        @Override
+        public void onLocationChanged(Location location) {
+            lat = location.getLatitude();
+            lon = location.getLongitude();
+
+            new GetWeather().execute(Common.apiRequest(String.valueOf(lat), String.valueOf(lon)));
+        }
+
+        @Override
+        public void onStatusChanged(String s, int i, Bundle bundle) {
+
+        }
+
+        @Override
+        public void onProviderEnabled(String s) {
+
+        }
+
+        @Override
+        public void onProviderDisabled(String s) {
+
         }
     }
 }
