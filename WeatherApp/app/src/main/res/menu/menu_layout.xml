@@ -4,4 +4,8 @@
         android:id="@+id/aboutButton"
         android:title="About"
         android:visible="true" />
+    <item
+        android:id="@+id/radarView"
+        android:title="Radar"
+        android:visible="true" />
 </menu>

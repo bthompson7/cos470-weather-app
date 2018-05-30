@@ -33,7 +33,7 @@
             android:value="AIzaSyAL0KxBQIzE9hcFTqCS0VpeQPtzpDdHjG4" />
 
         <activity android:name=".WeatherRadarActivity" />
-        <activity android:name=".About_app"></activity>
+        <activity android:name=".About_app" />
     </application>
 
 </manifest>

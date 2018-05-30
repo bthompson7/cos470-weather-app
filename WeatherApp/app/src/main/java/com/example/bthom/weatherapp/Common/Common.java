@@ -4,6 +4,7 @@ import android.support.annotation.NonNull;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 /**
@@ -13,6 +14,7 @@ import java.util.Date;
 public class Common {
     private static String API_KEY = "2942e762a1d9e3df6cad51bdf368f522"; //my api key
     private static String API_LINK = "http://api.openweathermap.org/data/2.5/weather"; //link for current weather
+    static final long ONE_MINUTE_IN_MILLIS=60000;
 
     @NonNull
     public static String apiRequest(String lat, String lon){
@@ -34,8 +36,13 @@ public class Common {
     public static String getImage(String image){
         return String.format("http://openweathermap.org/img/w/%s.png",image);
     }
+    public static String getDateAndTimeNow(){
+        DateFormat dateFormat = new SimpleDateFormat("MMMM dd YYYY HH:mm");
+        Date date = new Date();
+        return dateFormat.format(date);
+    }
     public static String getDateNow(){
-        DateFormat dateFormat = new SimpleDateFormat("dd MMMM YYYY HH:mm");
+        DateFormat dateFormat = new SimpleDateFormat("MMMM dd YYYY");
         Date date = new Date();
         return dateFormat.format(date);
     }
